@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Form Laporan & Riwayat Toko</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 8px; max-width: 900px; margin: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #f26522; display: inline-block; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .btn-logout { background: #d9534f; color: white; padding: 8px 15px; border: none; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 14px; }
+        .btn-logout:hover { background: #c9302c; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        input[type="text"], input[type="file"], select, textarea {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+        }
+        .btn-cek { background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+        .btn-submit { background: #f26522; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-submit:hover { background: #d9561a; }
+        .readonly-bg { background-color: #e9ecef; color: #555; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
+        th { background-color: #f26522; color: white; }
+        .status-approved { color: green; font-weight: bold; }
+        .status-pending { color: orange; font-weight: bold; }
+        .section-title { margin-top: 40px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-flex">
+        <h2>Form Pengajuan WO & Markdown</h2>
+        <a href="/logout" class="btn-logout">Logout</a>
+    </div>
+    <p style="color: #666; margin-top: -15px;">Login sebagai Toko Kode: <strong th:text="${storeCode}"></strong></p>
+
+    <!-- Form Input Laporan -->
+    <form action="/submit-laporan" method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>1. Foto Barang Rusak</label>
+            <input type="file" name="foto" accept="image/*" required>
+        </div>
+
+        <div class="form-group">
+            <label>2. Input PLU / Article</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="plu" name="plu" placeholder="Masukkan PLU" required>
+                <button type="button" class="btn-cek" onclick="cekPlu()">Cek Detail</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Nama Barang (Otomatis)</label>
+            <input type="text" id="namaBarang" name="namaBarang" class="readonly-bg" readonly required>
+        </div>
+
+        <div class="form-group">
+            <label>Harga Jual (Otomatis)</label>
+            <input type="text" id="harga" name="harga" class="readonly-bg" readonly required>
+        </div>
+
+        <div class="form-group">
+            <label>3. Keterangan Rusak</label>
+            <textarea name="keterangan" rows="3" placeholder="Contoh: Kemasan penyok, expired, dll" required></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>4. Layak Jual?</label>
+            <select name="layakJual">
+                <option value="Ya">Ya, masih layak jual</option>
+                <option value="Tidak">Tidak layak jual</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>5. Jenis Ajuan</label>
+            <select name="jenisAjuan">
+                <option value="Write Off">Write Off</option>
+                <option value="Markdown">Markdown</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>6. Nama Pengaju (Tim Member)</label>
+            <input type="text" name="namaPengaju" placeholder="Nama pengaju" required>
+        </div>
+
+        <button type="submit" class="btn-submit">Submit Laporan</button>
+    </form>
+
+    <!-- RIWAYAT LAPORAN TOKO -->
+    <h3 class="section-title">Riwayat & Status Laporan Toko Anda</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>Tanggal</th>
+            <th>PLU & Nama Barang</th>
+            <th>Jenis</th>
+            <th>Harga</th>
+            <th>Pengaju</th>
+            <th>Status AM</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="lap : ${listLaporanToko}">
+            <td th:text="${lap.tanggalInput}">2026-11-10</td>
+            <td><strong th:text="${lap.plu}"></strong> - <span th:text="${lap.namaBarang}"></span></td>
+            <td th:text="${lap.jenisAjuan}">Write Off</td>
+            <td th:text="${'Rp ' + #numbers.formatDecimal(lap.harga, 0, 'COMMA', 0, 'POINT')}">Rp 0</td>
+            <td th:text="${lap.namaPengaju}">Faisal</td>
+            <td>
+                <span th:if="${lap.statusApprove == 'Approved'}" class="status-approved">Approved (Disetujui)</span>
+                <span th:if="${lap.statusApprove == 'Pending'}" class="status-pending">Pending (Menunggu AM)</span>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function cekPlu() {
+        const plu = document.getElementById("plu").value;
+        if(!plu) { alert("Masukkan PLU terlebih dahulu!"); return; }
+
+        const btn = document.querySelector('.btn-cek');
+        btn.innerText = "Mencari...";
+
+        fetch('/api/cek-plu?plu=' + plu)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("namaBarang").value = data.namaBarang;
+                const rupiah = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(data.harga);
+                document.getElementById("harga").value = rupiah;
+                btn.innerText = "Cek Detail";
+            })
+            .catch(() => {
+                alert('Gagal mengambil data.');
+                btn.innerText = "Cek Detail";
+            });
+    }
+</script>
+</body>
+</html>

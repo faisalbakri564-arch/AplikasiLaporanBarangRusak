@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Summary Laporan - Toko</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; display: flex; height: 100vh; }
+        .sidebar { width: 250px; background: #2c3e50; color: white; display: flex; flex-direction: column; padding: 20px; }
+        .sidebar h3 { color: #f26522; margin-top: 0; }
+        .sidebar a { color: white; text-decoration: none; padding: 10px 15px; margin: 5px 0; border-radius: 4px; display: block; font-weight: bold; }
+        .sidebar a:hover, .sidebar a.active { background: #f26522; }
+        .main-content { flex: 1; padding: 30px; overflow-y: auto; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
+        th { background-color: #f26522; color: white; }
+        .status-approved { color: green; font-weight: bold; }
+        .status-pending { color: orange; font-weight: bold; }
+        img.thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <h3>E-Report Toko</h3>
+    <p>Kode Toko: <strong th:text="${storeCode}"></strong></p>
+    <hr style="border-color: #444; width:100%;">
+    <a href="/form-laporan">Input Laporan</a>
+    <a href="/summary-laporan" class="active">Summary Laporan</a>
+    <a href="/logout" style="margin-top: auto; background: #d9534f; text-align: center;">Logout</a>
+</div>
+
+<div class="main-content">
+    <div class="card">
+        <h2>Summary & Riwayat Laporan Toko</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Tanggal</th>
+                <th>Foto</th>
+                <th>PLU & Nama Barang</th>
+                <th>Expired</th>
+                <th>Jenis Ajuan</th>
+                <th>LDC (Beli)</th>
+                <th>Harga Jual</th>
+                <th>Pengaju</th>
+                <th>Status AM</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="lap : ${listLaporanToko}">
+                <td th:text="${lap.tanggalInput}"></td>
+                <td>
+                    <a th:href="${lap.fotoPath}" target="_blank">
+                        <img class="thumb" th:src="${lap.fotoPath}" alt="Foto">
+                    </a>
+                </td>
+                <td>
+                    <strong th:text="${lap.plu}"></strong><br>
+                    <span th:text="${lap.namaBarang}" style="font-size: 11px; color: #555;"></span>
+                </td>
+                <td th:text="${lap.expiredDate}"></td>
+                <td th:text="${lap.jenisAjuan}"></td>
+                <td th:text="${'Rp ' + #numbers.formatDecimal(lap.ldc, 0, 'COMMA', 0, 'POINT')}" style="color: #d9534f; font-weight: bold;"></td>
+                <td th:text="${'Rp ' + #numbers.formatDecimal(lap.harga, 0, 'COMMA', 0, 'POINT')}"></td>
+                <td th:text="${lap.namaPengaju}"></td>
+                <td>
+                    <span th:if="${lap.statusApprove == 'Approved'}" class="status-approved">Approved</span>
+                    <span th:if="${lap.statusApprove == 'Pending'}" class="status-pending">Pending</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
