@@ -1,10 +1,10 @@
 package com.guardian.laporan.service;
 
 import org.apache.poi.ss.usermodel.*;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,7 +13,7 @@ public class ExcelReaderService {
 
     private final String PRICE_ZONE_FILE = "data/FILE PRICE ZONE.xlsx";
     private final String MASTER_PRODUK_FILE = "data/Master Nama Produk.xlsx";
-    private final String LDC_FILE = "data/Data LDC.xlsx"; // Path file LDC
+    private final String LDC_FILE = "data/Data LDC.xlsx";
 
     private String getCellValueAsString(Cell cell) {
         if (cell == null) return "";
@@ -21,23 +21,28 @@ public class ExcelReaderService {
         return formatter.formatCellValue(cell).trim();
     }
 
+    // Helper aman untuk membaca file dari folder resources/data di server cloud
+    private InputStream getFileStream(String path) throws Exception {
+        return new ClassPathResource(path).getInputStream();
+    }
+
     // 1. Mencari Price Zone dari Kode Toko
     public String getPriceZoneByStore(String storeCode) {
         if (storeCode == null) return "";
         String cleanCode = storeCode.replaceFirst("^0+(?!$)", "").trim();
 
-        try (FileInputStream fis = new FileInputStream(PRICE_ZONE_FILE);
+        try (InputStream fis = getFileStream(PRICE_ZONE_FILE);
              Workbook workbook = WorkbookFactory.create(fis)) {
 
-            Sheet sheet = workbook.getSheetAt(1); // Baca Sheet 2
+            Sheet sheet = workbook.getSheetAt(1);
             for (Row row : sheet) {
-                if (row.getRowNum() == 0) continue; // Skip baris judul
+                if (row.getRowNum() == 0) continue;
 
-                Cell cellStoreCode = row.getCell(0); // Kolom A
+                Cell cellStoreCode = row.getCell(0);
                 if (cellStoreCode != null) {
                     String rowCode = getCellValueAsString(cellStoreCode).replaceFirst("^0+(?!$)", "");
                     if (rowCode.equals(cleanCode)) {
-                        Cell cellZone = row.getCell(2); // Kolom C
+                        Cell cellZone = row.getCell(2);
                         if (cellZone != null) {
                             return getCellValueAsString(cellZone);
                         }
@@ -55,13 +60,13 @@ public class ExcelReaderService {
         Map<String, Object> result = new HashMap<>();
         result.put("namaBarang", "PLU Tidak Ditemukan");
         result.put("harga", 0.0);
-        result.put("ldc", 0.0); // Default nilai LDC
+        result.put("ldc", 0.0);
 
         if (plu == null) return result;
-        String cleanPlu = plu.replaceAll("[^0-9]", ""); // Pastikan input PLU murni angka
+        String cleanPlu = plu.replaceAll("[^0-9]", "");
 
         // TAHAP A: Baca Nama Barang
-        try (FileInputStream fisMaster = new FileInputStream(MASTER_PRODUK_FILE);
+        try (InputStream fisMaster = getFileStream(MASTER_PRODUK_FILE);
              Workbook workbookMaster = WorkbookFactory.create(fisMaster)) {
             Sheet sheetMaster = workbookMaster.getSheetAt(0);
             for (Row row : sheetMaster) {
@@ -75,14 +80,16 @@ public class ExcelReaderService {
                     break;
                 }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            System.out.println("Gagal baca Master Produk: " + e.getMessage());
+        }
 
         // TAHAP B: Baca Harga Barang (Jual)
         String priceZone = getPriceZoneByStore(storeCode);
-        try (FileInputStream fisPrice = new FileInputStream(PRICE_ZONE_FILE);
+        try (InputStream fisPrice = getFileStream(PRICE_ZONE_FILE);
              Workbook workbookPrice = WorkbookFactory.create(fisPrice)) {
 
-            Sheet sheetPrice = workbookPrice.getSheetAt(0); // Sheet 1
+            Sheet sheetPrice = workbookPrice.getSheetAt(0);
             Row headerRow = sheetPrice.getRow(0);
             int targetColumn = -1;
 
@@ -116,40 +123,40 @@ public class ExcelReaderService {
                     break;
                 }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            System.out.println("Gagal baca Price Zone Harga: " + e.getMessage());
+        }
 
         // TAHAP C: Baca Harga LDC (Beli)
-        try (FileInputStream fisLdc = new FileInputStream(new File(LDC_FILE));
+        try (InputStream fisLdc = getFileStream(LDC_FILE);
              Workbook workbookLdc = WorkbookFactory.create(fisLdc)) {
 
             Sheet sheetLdc = workbookLdc.getSheetAt(0);
             for (Row row : sheetLdc) {
-                if (row.getRowNum() == 0) continue; // Skip header
-                Cell cellPlu = row.getCell(0); // PLU di Kolom A
+                if (row.getRowNum() == 0) continue;
+                Cell cellPlu = row.getCell(0);
                 if (cellPlu == null) continue;
 
-                // CARA KETAT: Membaca PLU agar kebal format
                 String excelPlu = "";
                 if (cellPlu.getCellType() == CellType.NUMERIC) {
                     excelPlu = String.valueOf((long) cellPlu.getNumericCellValue());
                 } else {
-                    excelPlu = getCellValueAsString(cellPlu).replaceAll("[^0-9]", ""); // Hapus semua selain angka
+                    excelPlu = getCellValueAsString(cellPlu).replaceAll("[^0-9]", "");
                 }
 
                 if (excelPlu.equals(cleanPlu)) {
-                    Cell cellLdcValue = row.getCell(2); // LDC di Kolom C (Index 2)
+                    Cell cellLdcValue = row.getCell(2);
                     if (cellLdcValue != null) {
                         if (cellLdcValue.getCellType() == CellType.NUMERIC) {
                             result.put("ldc", cellLdcValue.getNumericCellValue());
                         } else {
-                            // Membuang titik/koma jika terformat text
                             String ldcStr = getCellValueAsString(cellLdcValue).replaceAll("[^0-9]", "");
                             if (!ldcStr.isEmpty()) {
                                 result.put("ldc", Double.parseDouble(ldcStr));
                             }
                         }
                     }
-                    break; // Keluar dari loop setelah menemukan PLU
+                    break;
                 }
             }
         } catch (Exception e) {
