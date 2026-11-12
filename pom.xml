@@ -28,7 +28,7 @@
     </scm>
 
     <properties>
-        <java.version>26</java.version> <!-- Sudah diubah ke versi 26 sesuai JDK laptopmu -->
+        <java.version>21</java.version> <!-- Sudah diubah ke versi 26 sesuai JDK laptopmu -->
     </properties>
 
     <dependencies>
