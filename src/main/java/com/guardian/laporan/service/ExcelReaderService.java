@@ -11,9 +11,9 @@ import java.util.Map;
 @Service
 public class ExcelReaderService {
 
-    private final String PRICE_ZONE_FILE = "FILE PRICE ZONE.xlsx";
-    private final String MASTER_PRODUK_FILE = "Master Nama Produk.xlsx";
-    private final String LDC_FILE = "Data LDC.xlsx"; // Path file LDC
+    private final String PRICE_ZONE_FILE = "data/FILE PRICE ZONE.xlsx";
+    private final String MASTER_PRODUK_FILE = "data/Master Nama Produk.xlsx";
+    private final String LDC_FILE = "data/Data LDC.xlsx"; // Path file LDC
 
     private String getCellValueAsString(Cell cell) {
         if (cell == null) return "";
