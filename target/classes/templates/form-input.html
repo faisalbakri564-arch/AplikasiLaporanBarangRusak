@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Input Laporan - Store</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; display: flex; height: 100vh; }
+        .sidebar { width: 250px; background: #2c3e50; color: white; display: flex; flex-direction: column; padding: 20px; }
+        .sidebar h3 { color: #f26522; margin-top: 0; }
+        .sidebar a { color: white; text-decoration: none; padding: 10px 15px; margin: 5px 0; border-radius: 4px; display: block; font-weight: bold; }
+        .sidebar a:hover, .sidebar a.active { background: #f26522; }
+        .main-content { flex: 1; padding: 30px; overflow-y: auto; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 600px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        input[type="text"], input[type="file"], input[type="date"], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn-cek { background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; }
+        .btn-submit { background: #f26522; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .readonly-bg { background-color: #e9ecef; color: #555; }
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <h3>E-Report Toko</h3>
+    <p>Kode Toko: <strong th:text="${storeCode}"></strong></p>
+    <hr style="border-color: #444; width:100%;">
+    <a href="/form-laporan" class="active">Input Laporan</a>
+    <a href="/summary-laporan">Summary Laporan</a>
+    <a href="/logout" style="margin-top: auto; background: #d9534f; text-align: center;">Logout</a>
+</div>
+
+<div class="main-content">
+    <div class="card">
+        <h2>Form Pengajuan Barang Rusak</h2>
+        <form action="/submit-laporan" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>1. Foto Barang Rusak</label>
+                <input type="file" name="foto" accept="image/*" required>
+            </div>
+            <div class="form-group">
+                <label>2. Input PLU / Article</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="plu" name="plu" placeholder="Masukkan PLU" required>
+                    <button type="button" class="btn-cek" onclick="cekPlu()">Cek</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Nama Barang</label>
+                <input type="text" id="namaBarang" name="namaBarang" class="readonly-bg" readonly required>
+            </div>
+
+            <!-- Tambahan Input LDC -->
+            <div class="form-group">
+                <label>Harga Beli (LDC) - Otomatis</label>
+                <input type="text" id="ldc" name="ldc" class="readonly-bg" readonly required>
+            </div>
+
+            <div class="form-group">
+                <label>Harga Jual - Otomatis</label>
+                <input type="text" id="harga" name="harga" class="readonly-bg" readonly required>
+            </div>
+
+            <!-- Tambahan Input Expired Date -->
+            <div class="form-group">
+                <label>3. Expired Date (Kosongkan jika tidak ada)</label>
+                <input type="date" name="expiredDate" id="expiredDate">
+            </div>
+
+            <div class="form-group">
+                <label>4. Keterangan Rusak</label>
+                <textarea name="keterangan" rows="3" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>5. Layak Jual?</label>
+                <select name="layakJual"><option value="Ya">Ya</option><option value="Tidak">Tidak</option></select>
+            </div>
+
+            <div class="form-group">
+                <label>6. Jenis Ajuan</label>
+                <select name="jenisAjuan"><option value="Write Off">Write Off</option><option value="Markdown">Markdown</option></select>
+            </div>
+
+            <div class="form-group">
+                <label>7. Nama Pengaju</label>
+                <input type="text" name="namaPengaju" required>
+            </div>
+            <button type="submit" class="btn-submit">Submit Laporan</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function cekPlu() {
+        const plu = document.getElementById("plu").value;
+        if(!plu) return alert("Masukkan PLU!");
+        fetch('/api/cek-plu?plu=' + plu).then(res => res.json()).then(data => {
+
+            document.getElementById("namaBarang").value = data.namaBarang;
+
+            // Format Harga Jual ke Rupiah
+            document.getElementById("harga").value = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(data.harga);
+
+            // Format Harga Beli (LDC) ke Rupiah
+            if (data.ldc) {
+                document.getElementById("ldc").value = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(data.ldc);
+            } else {
+                document.getElementById("ldc").value = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(0);
+            }
+
+        });
+    }
+</script>
+</body>
+</html>
