@@ -23,22 +23,31 @@ public class SupabaseStorageService {
                 return null;
             }
 
-            String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename().replaceAll("\\s+", "_");
+            // Sanitasi ketat: hanya izinkan huruf, angka, titik, underscore, dan strip
+            String originalName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "foto.jpg";
+            String safeName = originalName.replaceAll("[^a-zA-Z0-9._-]", "_");
+            String fileName = System.currentTimeMillis() + "_" + safeName;
+
             String url = supabaseUrl + "/storage/v1/object/" + BUCKET_NAME + "/" + fileName;
 
             RestTemplate restTemplate = new RestTemplate();
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", "Bearer " + supabaseKey);
             headers.set("apikey", supabaseKey);
-            headers.set("x-upsert", "true"); // Mengizinkan timpa file jika nama sama
-            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.set("x-upsert", "true");
+
+            // Gunakan MIME type gambar asli agar browser selalu bisa merender foto
+            String contentType = file.getContentType();
+            if (contentType != null && contentType.startsWith("image/")) {
+                headers.setContentType(MediaType.parseMediaType(contentType));
+            } else {
+                headers.setContentType(MediaType.IMAGE_JPEG);
+            }
 
             HttpEntity<byte[]> requestEntity = new HttpEntity<>(file.getBytes(), headers);
-
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
 
             if (response.getStatusCode() == HttpStatus.OK || response.getStatusCode() == HttpStatus.CREATED) {
-                // Mengembalikan Public URL file di Supabase Cloud
                 return supabaseUrl + "/storage/v1/object/public/" + BUCKET_NAME + "/" + fileName;
             }
         } catch (Exception e) {
