@@ -74,4 +74,9 @@ public class Laporan {
 
     public Double getLdc() { return ldc; }
     public void setLdc(Double ldc) { this.ldc = ldc; }
+    @Column(name = "reject_reason")
+    private String rejectReason;
+
+    public String getRejectReason() { return rejectReason; }
+    public void setRejectReason(String rejectReason) { this.rejectReason = rejectReason; }
 }
