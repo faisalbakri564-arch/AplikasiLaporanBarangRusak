@@ -7,6 +7,7 @@ import com.guardian.laporan.service.SupabaseStorageService;
 import com.guardian.laporan.model.Laporan;
 import com.guardian.laporan.model.Toko;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -23,6 +24,7 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -242,7 +244,7 @@ public class StoreController {
                 Cell cell = header.createCell(i);
                 cell.setCellValue(columns[i]);
                 cell.setCellStyle(headerStyle);
-                sheet.setColumnWidth(i, colWidths[i] * 256); // Aman di server Linux Railway
+                sheet.setColumnWidth(i, colWidths[i] * 256);
             }
 
             int rowNum = 1;
@@ -318,6 +320,32 @@ public class StoreController {
         }
 
         return buildExcelFile(filteredList, "Laporan_Toko_" + storeCode + ".xlsx");
+    }
+
+    // ==========================================
+    // DOWNLOAD TEMPLATE KOSONG BERITA ACARA (TOKO)
+    // ==========================================
+    @GetMapping("/berita-acara/download-template")
+    public ResponseEntity<byte[]> downloadTemplateBeritaAcara(HttpSession session) {
+        String storeCode = (String) session.getAttribute("storeCode");
+        if (storeCode == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        ClassPathResource resource = new ClassPathResource("data/FORMAT BERITA ACARA PEMUSNAHAN BARANG.xlsx");
+        try (InputStream is = resource.getInputStream()) {
+            byte[] fileBytes = is.readAllBytes();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.setContentDispositionFormData("attachment", "Template_Berita_Acara_Pemusnahan.xlsx");
+            headers.setContentLength(fileBytes.length);
+
+            return new ResponseEntity<>(fileBytes, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // APPROVE & REJECT DENGAN REASON
