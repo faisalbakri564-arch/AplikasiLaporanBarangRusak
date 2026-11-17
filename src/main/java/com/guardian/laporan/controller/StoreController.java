@@ -7,25 +7,22 @@ import com.guardian.laporan.service.SupabaseStorageService;
 import com.guardian.laporan.model.Laporan;
 import com.guardian.laporan.model.Toko;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.MediaType;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 
 import jakarta.annotation.PostConstruct;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import java.io.File;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -62,7 +59,9 @@ public class StoreController {
     }
 
     @GetMapping("/")
-    public String showLoginPage() { return "login"; }
+    public String showLoginPage() {
+        return "login";
+    }
 
     @PostMapping("/proses-login")
     public String prosesLogin(@RequestParam("username") String username,
@@ -89,31 +88,63 @@ public class StoreController {
         return "redirect:/";
     }
 
+    // Helper Filter Tanggal (Mendukung Semua, Mingguan, Bulanan, dan Pilih Tanggal)
+    private boolean isMatchDateFilter(LocalDate tanggalInput, String filter, String startDate, String endDate) {
+        if (tanggalInput == null) return false;
+
+        boolean hasStart = startDate != null && !startDate.trim().isEmpty();
+        boolean hasEnd = endDate != null && !endDate.trim().isEmpty();
+
+        if (hasStart || hasEnd) {
+            try {
+                if (hasStart) {
+                    LocalDate start = LocalDate.parse(startDate.trim());
+                    if (tanggalInput.isBefore(start)) return false;
+                }
+                if (hasEnd) {
+                    LocalDate end = LocalDate.parse(endDate.trim());
+                    if (tanggalInput.isAfter(end)) return false;
+                }
+                return true;
+            } catch (Exception e) {
+                return true;
+            }
+        }
+
+        LocalDate now = LocalDate.now();
+        if ("mingguan".equalsIgnoreCase(filter)) {
+            return !tanggalInput.isBefore(now.minusDays(7));
+        } else if ("bulanan".equalsIgnoreCase(filter)) {
+            return !tanggalInput.isBefore(now.minusDays(30));
+        }
+        return true;
+    }
+
     // ==========================================
-    // DASHBOARD AM - UPDATE REKAP LDC
+    // DASHBOARD AM - FILTER TANGGAL & REKAP LDC
     // ==========================================
     @GetMapping("/dashboard-am")
     public String dashboardAM(@RequestParam(value = "filter", defaultValue = "semua") String filter,
+                              @RequestParam(value = "startDate", required = false) String startDate,
+                              @RequestParam(value = "endDate", required = false) String endDate,
                               HttpSession session, Model model) {
         if (!"AM".equals(session.getAttribute("role"))) return "redirect:/";
+
+        if ((startDate != null && !startDate.isEmpty()) || (endDate != null && !endDate.isEmpty())) {
+            filter = "custom";
+        }
 
         List<Laporan> semuaLaporan = laporanRepository.findAll();
         List<Laporan> laporanFiltered = new ArrayList<>();
 
-        LocalDate now = LocalDate.now();
         for (Laporan l : semuaLaporan) {
-            if (l.getTanggalInput() == null) continue;
-            boolean masuk = true;
-            if (filter.equalsIgnoreCase("mingguan")) {
-                if (l.getTanggalInput().isBefore(now.minusDays(7))) masuk = false;
-            } else if (filter.equalsIgnoreCase("bulanan")) {
-                if (l.getTanggalInput().isBefore(now.minusDays(30))) masuk = false;
+            if (isMatchDateFilter(l.getTanggalInput(), filter, startDate, endDate)) {
+                laporanFiltered.add(l);
             }
-            if (masuk) laporanFiltered.add(l);
         }
 
         double totalWO = 0, totalMarkdown = 0;
-        double totalLdcWO = 0, totalLdcMarkdown = 0; // Tambahan rekap LDC
+        double totalLdcWO = 0, totalLdcMarkdown = 0;
 
         Map<String, List<Laporan>> mapLaporanPerToko = new HashMap<>();
         Map<String, Double> mapTotalPerToko = new HashMap<>();
@@ -154,6 +185,8 @@ public class StoreController {
         model.addAttribute("mapNamaToko", mapNamaToko);
         model.addAttribute("listToko", tokoRepository.findAll());
         model.addAttribute("currentFilter", filter);
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
 
         return "dashboard-am";
     }
@@ -179,21 +212,12 @@ public class StoreController {
     }
 
     // ==========================================
-    // EXPORT EXCEL - TAMBAHAN LDC DAN EXPIRED
+    // HELPER GENERATOR EXCEL VALID (.XLSX)
     // ==========================================
-    @GetMapping("/am/export-excel")
-    public void exportToExcel(@RequestParam(value = "filter", defaultValue = "semua") String filter,
-                              HttpServletResponse response, HttpSession session) {
-        try {
-            if (!"AM".equals(session.getAttribute("role"))) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
-                return;
-            }
+    private ResponseEntity<byte[]> buildExcelFile(List<Laporan> listData, String fileName) {
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
-            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            response.setHeader("Content-Disposition", "attachment; filename=Laporan_Barang_Rusak_" + filter + ".xlsx");
-
-            Workbook workbook = new XSSFWorkbook();
             Sheet sheet = workbook.createSheet("Rekap Laporan");
 
             Map<String, String> mapNamaToko = new HashMap<>();
@@ -201,33 +225,28 @@ public class StoreController {
                 mapNamaToko.put(t.getStoreCode(), t.getStoreName());
             }
 
+            String[] columns = {
+                    "Tanggal", "Kode Toko", "Nama Toko", "PLU", "Nama Barang",
+                    "Expired Date", "Keterangan Rusak", "Jenis Ajuan",
+                    "LDC (Beli)", "Harga (Jual)", "Pengaju", "Status", "Reason Reject"
+            };
+            int[] colWidths = {14, 12, 32, 12, 35, 14, 28, 15, 16, 16, 18, 14, 30};
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font font = workbook.createFont();
+            font.setBold(true);
+            headerStyle.setFont(font);
+
             Row header = sheet.createRow(0);
-            // Menambahkan kolom ED dan LDC
-            String[] columns = {"Tanggal", "Kode Toko", "Nama Toko", "PLU", "Nama Barang", "Expired Date", "Keterangan Rusak", "Jenis Ajuan", "LDC (Beli)", "Harga (Jual)", "Pengaju", "Status"};
             for (int i = 0; i < columns.length; i++) {
                 Cell cell = header.createCell(i);
                 cell.setCellValue(columns[i]);
-                CellStyle style = workbook.createCellStyle();
-                Font font = workbook.createFont();
-                font.setBold(true);
-                style.setFont(font);
-                cell.setCellStyle(style);
+                cell.setCellStyle(headerStyle);
+                sheet.setColumnWidth(i, colWidths[i] * 256); // Aman di server Linux Railway
             }
 
-            LocalDate now = LocalDate.now();
-            List<Laporan> list = laporanRepository.findAll();
             int rowNum = 1;
-
-            for (Laporan lap : list) {
-                if (lap.getTanggalInput() == null) continue;
-                boolean masuk = true;
-                if (filter.equalsIgnoreCase("mingguan")) {
-                    if (lap.getTanggalInput().isBefore(now.minusDays(7))) masuk = false;
-                } else if (filter.equalsIgnoreCase("bulanan")) {
-                    if (lap.getTanggalInput().isBefore(now.minusDays(30))) masuk = false;
-                }
-                if (!masuk) continue;
-
+            for (Laporan lap : listData) {
                 Row row = sheet.createRow(rowNum++);
                 row.createCell(0).setCellValue(lap.getTanggalInput() != null ? lap.getTanggalInput().toString() : "-");
                 row.createCell(1).setCellValue(lap.getStoreCode() != null ? lap.getStoreCode() : "-");
@@ -237,35 +256,98 @@ public class StoreController {
                 row.createCell(5).setCellValue(lap.getExpiredDate() != null ? lap.getExpiredDate() : "-");
                 row.createCell(6).setCellValue(lap.getKeterangan() != null ? lap.getKeterangan() : "-");
                 row.createCell(7).setCellValue(lap.getJenisAjuan() != null ? lap.getJenisAjuan() : "-");
-                row.createCell(8).setCellValue(lap.getLdc() != null ? lap.getLdc() : 0);
-                row.createCell(9).setCellValue(lap.getHarga() != null ? lap.getHarga() : 0);
+                row.createCell(8).setCellValue(lap.getLdc() != null ? lap.getLdc() : 0.0);
+                row.createCell(9).setCellValue(lap.getHarga() != null ? lap.getHarga() : 0.0);
                 row.createCell(10).setCellValue(lap.getNamaPengaju() != null ? lap.getNamaPengaju() : "-");
                 row.createCell(11).setCellValue(lap.getStatusApprove() != null ? lap.getStatusApprove() : "-");
+                row.createCell(12).setCellValue(lap.getRejectReason() != null ? lap.getRejectReason() : "-");
             }
 
-            for (int i = 0; i < columns.length; i++) {
-                sheet.autoSizeColumn(i);
-            }
+            workbook.write(out);
+            byte[] bytes = out.toByteArray();
 
-            workbook.write(response.getOutputStream());
-            workbook.close();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.setContentDispositionFormData("attachment", fileName);
+            headers.setContentLength(bytes.length);
 
+            return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
         } catch (Exception e) {
             e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
+    // EXPORT EXCEL UNTUK AM
+    @GetMapping("/am/export-excel")
+    public ResponseEntity<byte[]> exportToExcelAM(@RequestParam(value = "filter", defaultValue = "semua") String filter,
+                                                  @RequestParam(value = "startDate", required = false) String startDate,
+                                                  @RequestParam(value = "endDate", required = false) String endDate,
+                                                  HttpSession session) {
+        if (!"AM".equals(session.getAttribute("role"))) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<Laporan> filteredList = new ArrayList<>();
+        for (Laporan lap : laporanRepository.findAll()) {
+            if (isMatchDateFilter(lap.getTanggalInput(), filter, startDate, endDate)) {
+                filteredList.add(lap);
+            }
+        }
+
+        String label = (startDate != null && !startDate.isEmpty()) ? startDate + "_sd_" + endDate : filter;
+        return buildExcelFile(filteredList, "Laporan_Area_" + label + ".xlsx");
+    }
+
+    // EXPORT EXCEL KHUSUS TOKO
+    @GetMapping("/toko/export-excel")
+    public ResponseEntity<byte[]> exportToExcelToko(@RequestParam(value = "startDate", required = false) String startDate,
+                                                    @RequestParam(value = "endDate", required = false) String endDate,
+                                                    HttpSession session) {
+        String storeCode = (String) session.getAttribute("storeCode");
+        if (storeCode == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<Laporan> filteredList = new ArrayList<>();
+        for (Laporan lap : laporanRepository.findAll()) {
+            if (storeCode.equals(lap.getStoreCode()) &&
+                isMatchDateFilter(lap.getTanggalInput(), "semua", startDate, endDate)) {
+                filteredList.add(lap);
+            }
+        }
+
+        return buildExcelFile(filteredList, "Laporan_Toko_" + storeCode + ".xlsx");
+    }
+
+    // APPROVE & REJECT DENGAN REASON
     @GetMapping("/approve/{id}")
     public String approveLaporan(@PathVariable("id") Long id, HttpSession session) {
         if (!"AM".equals(session.getAttribute("role"))) return "redirect:/";
         Laporan laporan = laporanRepository.findById(id).orElse(null);
         if (laporan != null) {
             laporan.setStatusApprove("Approved");
+            laporan.setRejectReason(null);
             laporanRepository.save(laporan);
         }
         return "redirect:/dashboard-am";
     }
 
+    @PostMapping("/reject/{id}")
+    public String rejectLaporan(@PathVariable("id") Long id,
+                                @RequestParam("reason") String reason,
+                                HttpSession session) {
+        if (!"AM".equals(session.getAttribute("role"))) return "redirect:/";
+        Laporan laporan = laporanRepository.findById(id).orElse(null);
+        if (laporan != null) {
+            laporan.setStatusApprove("Rejected");
+            laporan.setRejectReason(reason != null ? reason.trim() : "-");
+            laporanRepository.save(laporan);
+        }
+        return "redirect:/dashboard-am";
+    }
+
+    // HALAMAN FORM & SUMMARY TOKO
     @GetMapping("/form-laporan")
     public String showFormPage(HttpSession session, Model model) {
         if (session.getAttribute("storeCode") == null) return "redirect:/";
@@ -274,16 +356,23 @@ public class StoreController {
     }
 
     @GetMapping("/summary-laporan")
-    public String showSummaryPage(HttpSession session, Model model) {
+    public String showSummaryPage(@RequestParam(value = "startDate", required = false) String startDate,
+                                  @RequestParam(value = "endDate", required = false) String endDate,
+                                  HttpSession session, Model model) {
         String storeCode = (String) session.getAttribute("storeCode");
         if (storeCode == null) return "redirect:/";
 
         List<Laporan> laporanToko = new ArrayList<>();
         for (Laporan l : laporanRepository.findAll()) {
-            if (storeCode.equals(l.getStoreCode())) laporanToko.add(l);
+            if (storeCode.equals(l.getStoreCode()) &&
+                isMatchDateFilter(l.getTanggalInput(), "semua", startDate, endDate)) {
+                laporanToko.add(l);
+            }
         }
         model.addAttribute("storeCode", storeCode);
         model.addAttribute("listLaporanToko", laporanToko);
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
         return "summary-laporan";
     }
 
@@ -294,7 +383,7 @@ public class StoreController {
     }
 
     // ==========================================
-    // SUBMIT LAPORAN - MENERIMA LDC & ED
+    // SUBMIT LAPORAN - AMBIL HARGA ASLI DARI MASTER EXCEL
     // ==========================================
     @PostMapping("/submit-laporan")
     public String submitLaporan(
@@ -303,9 +392,9 @@ public class StoreController {
             @RequestParam("namaBarang") String namaBarang,
             @RequestParam(value = "expiredDate", required = false) String expiredDate,
             @RequestParam(value = "ldc", defaultValue = "0") String ldc,
-            @RequestParam("harga") String harga,
+            @RequestParam(value = "harga", defaultValue = "0") String harga,
             @RequestParam("keterangan") String keterangan,
-            @RequestParam("layakJual") String layakJual,
+            @RequestParam(value = "layakJual", required = false, defaultValue = "-") String layakJual,
             @RequestParam("jenisAjuan") String jenisAjuan,
             @RequestParam("namaPengaju") String namaPengaju,
             HttpSession session) {
@@ -319,22 +408,19 @@ public class StoreController {
                 publicUrl = supabaseStorageService.uploadFile(foto);
             }
 
-            // Pembersihan Harga Jual
-            String cleanHarga = harga.replaceAll("[^0-9]", "");
-            double hargaAngka = cleanHarga.isEmpty() ? 0.0 : Double.parseDouble(cleanHarga);
-            if (harga.contains(",00") || harga.contains(".00")) hargaAngka /= 100;
-
-            // Pembersihan LDC
-            String cleanLdc = ldc.replaceAll("[^0-9]", "");
-            double ldcAngka = cleanLdc.isEmpty() ? 0.0 : Double.parseDouble(cleanLdc);
-            if (ldc.contains(",00") || ldc.contains(".00")) ldcAngka /= 100;
+            // Ambil harga jual & LDC murni langsung dari ExcelReaderService agar tidak korup
+            Map<String, Object> detailMaster = excelReaderService.getDetailBarang(storeCode, plu);
+            double hargaAngka = detailMaster.get("harga") instanceof Number
+                    ? ((Number) detailMaster.get("harga")).doubleValue() : 0.0;
+            double ldcAngka = detailMaster.get("ldc") instanceof Number
+                    ? ((Number) detailMaster.get("ldc")).doubleValue() : 0.0;
 
             Laporan lap = new Laporan();
             lap.setStoreCode(storeCode);
-            lap.setPlu(plu);
+            lap.setPlu(plu.trim());
             lap.setNamaBarang(namaBarang);
-            lap.setExpiredDate(expiredDate); // Simpan ED
-            lap.setLdc(ldcAngka);            // Simpan LDC
+            lap.setExpiredDate(expiredDate);
+            lap.setLdc(ldcAngka);
             lap.setHarga(hargaAngka);
             lap.setKeterangan(keterangan);
             lap.setLayakJual(layakJual);
