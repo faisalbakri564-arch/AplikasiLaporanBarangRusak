@@ -5,7 +5,7 @@
     <title>Form Laporan & Riwayat Toko</title>
     <style>
         body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
-        .container { background: white; padding: 30px; border-radius: 8px; max-width: 900px; margin: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .container { background: white; padding: 30px; border-radius: 8px; max-width: 950px; margin: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         h2 { color: #f26522; display: inline-block; }
         .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         .btn-logout { background: #d9534f; color: white; padding: 8px 15px; border: none; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 14px; }
@@ -20,11 +20,18 @@
         .btn-submit:hover { background: #d9561a; }
         .readonly-bg { background-color: #e9ecef; color: #555; }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .toolbar-toko { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: #f9f9f9; padding: 12px; border-radius: 6px; border: 1px solid #eee; margin-top: 15px; }
+        .toolbar-toko input[type="date"] { padding: 7px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn-filter { background: #34495e; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-export { background: #1D6F42; color: white; padding: 8px 14px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; }
         th { background-color: #f26522; color: white; }
         .status-approved { color: green; font-weight: bold; }
         .status-pending { color: orange; font-weight: bold; }
+        .status-rejected { color: #d9534f; font-weight: bold; }
+        .reason-box { display: block; margin-top: 4px; padding: 5px 8px; background: #fdecea; color: #b52b27; border-left: 3px solid #d9534f; font-size: 12px; }
         .section-title { margin-top: 40px; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
     </style>
 </head>
@@ -59,7 +66,9 @@
 
         <div class="form-group">
             <label>Harga Jual (Otomatis)</label>
-            <input type="text" id="harga" name="harga" class="readonly-bg" readonly required>
+            <!-- Tampilan Rupiah untuk user, tapi nilai angka murni dikirim lewat input hidden -->
+            <input type="text" id="hargaDisplay" class="readonly-bg" readonly required>
+            <input type="hidden" id="harga" name="harga">
         </div>
 
         <div class="form-group">
@@ -93,6 +102,20 @@
 
     <!-- RIWAYAT LAPORAN TOKO -->
     <h3 class="section-title">Riwayat & Status Laporan Toko Anda</h3>
+
+    <div class="toolbar-toko">
+        <form method="GET" action="/form-laporan" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <label style="margin:0; font-size:13px;">Filter Tanggal:</label>
+            <input type="date" name="startDate" th:value="${startDate}">
+            <span>s/d</span>
+            <input type="date" name="endDate" th:value="${endDate}">
+            <button type="submit" class="btn-filter">Filter</button>
+            <a href="/form-laporan" style="font-size:12px; color:#555; text-decoration:none;">Reset</a>
+        </form>
+
+        <a th:href="@{/toko/export-excel(startDate=${startDate}, endDate=${endDate})}" class="btn-export">⬇ Download Laporan Toko (Excel)</a>
+    </div>
+
     <table>
         <thead>
         <tr>
@@ -106,14 +129,18 @@
         </thead>
         <tbody>
         <tr th:each="lap : ${listLaporanToko}">
-            <td th:text="${lap.tanggalInput}">2026-11-10</td>
+            <td th:text="${lap.tanggalInput}"></td>
             <td><strong th:text="${lap.plu}"></strong> - <span th:text="${lap.namaBarang}"></span></td>
-            <td th:text="${lap.jenisAjuan}">Write Off</td>
-            <td th:text="${'Rp ' + #numbers.formatDecimal(lap.harga, 0, 'COMMA', 0, 'POINT')}">Rp 0</td>
-            <td th:text="${lap.namaPengaju}">Faisal</td>
+            <td th:text="${lap.jenisAjuan}"></td>
+            <td th:text="${'Rp ' + #numbers.formatDecimal(lap.harga, 0, 'COMMA', 0, 'POINT')}"></td>
+            <td th:text="${lap.namaPengaju}"></td>
             <td>
                 <span th:if="${lap.statusApprove == 'Approved'}" class="status-approved">Approved (Disetujui)</span>
                 <span th:if="${lap.statusApprove == 'Pending'}" class="status-pending">Pending (Menunggu AM)</span>
+                <div th:if="${lap.statusApprove == 'Rejected'}">
+                    <span class="status-rejected">Rejected (Ditolak)</span>
+                    <span class="reason-box" th:if="${lap.rejectReason != null}" th:text="${'Alasan AM: ' + lap.rejectReason}"></span>
+                </div>
             </td>
         </tr>
         </tbody>
@@ -132,8 +159,9 @@
             .then(response => response.json())
             .then(data => {
                 document.getElementById("namaBarang").value = data.namaBarang;
-                const rupiah = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(data.harga);
-                document.getElementById("harga").value = rupiah;
+                document.getElementById("harga").value = data.harga; // Angka murni (misal: 30500)
+                const rupiah = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(data.harga);
+                document.getElementById("hargaDisplay").value = rupiah;
                 btn.innerText = "Cek Detail";
             })
             .catch(() => {
