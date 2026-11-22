@@ -46,8 +46,16 @@
         .store-header { background: #34495e; color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap; }
         .store-header h4 { margin: 0; }
         .store-header-actions { display: flex; align-items: center; gap: 15px; }
-        .btn-approve-all { background: #4CAF50; color: white; padding: 9px 16px; border-radius: 5px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: background 0.2s; }
+        .btn-approve-all { background: #4CAF50; color: white; padding: 9px 16px; border: none; border-radius: 5px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: background 0.2s; cursor: pointer; }
         .btn-approve-all:hover { background: #43a047; }
+        .btn-approve-all:disabled, .btn-approve-all.disabled {
+            background: #6c757d;
+            color: #dcdcdc;
+            cursor: not-allowed;
+            opacity: 0.65;
+            box-shadow: none;
+            pointer-events: none;
+        }
         .store-body { padding: 20px; overflow-x: auto; }
 
         .btn-approve { background: #4CAF50; color: white; padding: 6px 10px; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 4px; }
@@ -121,15 +129,28 @@
 
         <h3 style="color: #333; margin-bottom: 15px;">Daftar Ajuan Per Toko</h3>
 
-        <div class="store-card" th:each="entry : ${mapLaporanPerToko}">
+        <div class="store-card" th:each="entry : ${mapLaporanPerToko}"
+             th:with="pendingList=${entry.value.?[statusApprove == 'Pending']}">
             <div class="store-header">
                 <h4 th:text="${'Toko: ' + entry.key + ' - ' + mapNamaToko.getOrDefault(entry.key, '')}"></h4>
                 <div class="store-header-actions">
-                    <a th:href="@{'/approve-all/' + ${entry.key}(filter=${currentFilter}, startDate=${startDate}, endDate=${endDate})}"
+                    <!-- Aktif jika masih ada ajuan Pending -->
+                    <a th:if="${!#lists.isEmpty(pendingList)}"
+                       th:href="@{'/approve-all/' + ${entry.key}(filter=${currentFilter}, startDate=${startDate}, endDate=${endDate})}"
                        class="btn-approve-all"
                        onclick="return confirm('Approve semua ajuan yang masih Pending untuk toko ini?')">
                         ✓ Approve Semua
                     </a>
+
+                    <!-- Non-aktif (disabled) jika semua ajuan sudah Approved / tidak ada Pending -->
+                    <button th:if="${#lists.isEmpty(pendingList)}"
+                            type="button"
+                            class="btn-approve-all disabled"
+                            disabled
+                            title="Semua ajuan pada toko ini sudah diproses">
+                        ✓ Approve Semua
+                    </button>
+
                     <div style="text-align: right;">
                         <span style="background: #f26522; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; display:block; margin-bottom: 4px;"
                               th:text="${'Jual: Rp ' + #numbers.formatDecimal(mapTotalPerToko.get(entry.key), 0, 'COMMA', 0, 'POINT')}"></span>
