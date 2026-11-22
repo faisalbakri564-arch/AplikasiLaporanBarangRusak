@@ -31,11 +31,33 @@
 
         /* Tombol Pilih Kamera / Galeri */
         .photo-btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
-        .btn-camera { flex: 1; background: #2c3e50; color: white; border: none; padding: 11px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; text-align: center; }
-        .btn-gallery { flex: 1; background: #6c757d; color: white; border: none; padding: 11px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; text-align: center; }
-        .hidden-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; z-index: -1; }
+        .btn-camera, .btn-gallery {
+            flex: 1 1 160px; color: white; padding: 11px 12px; border-radius: 4px;
+            cursor: pointer; font-weight: bold; font-size: 14px; text-align: center;
+            margin: 0; user-select: none; display: inline-block;
+        }
+        .btn-camera { background: #2c3e50; }
+        .btn-gallery { background: #6c757d; }
+        .btn-web-cam {
+            margin-top: 8px; background: #17a2b8; color: white; border: none;
+            padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; width: 100%;
+        }
+        .sr-only-input {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+        }
         .file-status { margin-top: 6px; font-size: 13px; color: #555; }
-        #previewFoto { display: none; margin-top: 8px; max-width: 140px; max-height: 140px; border-radius: 6px; border: 1px solid #ccc; object-fit: cover; }
+        #previewFoto { display: none; margin-top: 8px; max-width: 150px; max-height: 150px; border-radius: 6px; border: 1px solid #ccc; object-fit: cover; }
+
+        /* Area Kamera Web untuk Foto Barang */
+        #photo-cam-container {
+            display: none; margin-top: 10px; padding: 10px; border: 2px dashed #17a2b8;
+            border-radius: 6px; background: #f4fbfd; width: 100%;
+        }
+        #photoVideo { width: 100%; border-radius: 4px; background: #000; display: block; }
+        .photo-cam-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .btn-snap { flex: 1; background: #28a745; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .btn-close-cam { flex: 1; background: #d9534f; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; }
 
         .input-action-row { display: flex; gap: 8px; flex-wrap: wrap; }
         .input-action-row input { flex: 1 1 200px; }
@@ -47,7 +69,7 @@
         .readonly-bg { background-color: #e9ecef; color: #555; }
         .hint { font-size: 12px; color: #666; margin-top: 5px; display: block; line-height: 1.4; }
 
-        /* Area Kamera Scanner */
+        /* Area Kamera Scanner Barcode */
         #scanner-container { display: none; margin-top: 12px; padding: 10px; border: 2px dashed #007bff; border-radius: 6px; background: #f8fbff; width: 100%; }
         #reader { width: 100%; min-height: 240px; overflow: hidden; border-radius: 4px; background: #000; }
         #reader video { width: 100% !important; height: auto !important; object-fit: cover; }
@@ -90,10 +112,30 @@
             <div class="form-group">
                 <label>1. Foto Barang Rusak</label>
                 <div class="photo-btn-group">
-                    <button type="button" class="btn-camera" onclick="pilihFoto(true)">📷 Ambil Foto (Kamera)</button>
-                    <button type="button" class="btn-gallery" onclick="pilihFoto(false)">🖼️ Pilih dari Galeri</button>
+                    <!-- Input Kamera Statis (Dipicu langsung lewat label agar Android buka Kamera) -->
+                    <label for="kameraInput" class="btn-camera">📷 Ambil Foto (Kamera)</label>
+                    <input type="file" id="kameraInput" accept="image/*" capture="environment" class="sr-only-input" onchange="handleFileSelect(this, 'kamera')">
+
+                    <!-- Input Galeri Statis -->
+                    <label for="galeriInput" class="btn-gallery">🖼️ Pilih dari Galeri</label>
+                    <input type="file" id="galeriInput" accept="image/*" class="sr-only-input" onchange="handleFileSelect(this, 'galeri')">
                 </div>
-                <input type="file" id="fotoInput" name="foto" accept="image/*" class="hidden-file-input" onchange="previewGambar(this)" required>
+
+                <!-- Cadangan Kamera Web Langsung jika Android tetap memaksa buka Galeri -->
+                <button type="button" class="btn-web-cam" onclick="openWebCamera()">🎥 Jepret Langsung via Kamera Browser</button>
+
+                <div id="photo-cam-container">
+                    <video id="photoVideo" autoplay playsinline></video>
+                    <canvas id="photoCanvas" style="display:none;"></canvas>
+                    <div class="photo-cam-actions">
+                        <button type="button" class="btn-snap" onclick="captureWebPhoto()">📸 Jepret Foto</button>
+                        <button type="button" class="btn-close-cam" onclick="closeWebCamera()">Batal</button>
+                    </div>
+                </div>
+
+                <!-- Input penampung untuk hasil jepretan Kamera Browser -->
+                <input type="file" id="webCamInput" accept="image/*" class="sr-only-input">
+
                 <div id="fileStatus" class="file-status">Belum ada foto dipilih</div>
                 <img id="previewFoto" alt="Preview Foto Barang">
             </div>
@@ -171,32 +213,101 @@
 <script>
     let html5QrCode = null;
     let isProductValid = false;
+    let hasPhotoSelected = false;
+    let webCamStream = null;
 
-    function pilihFoto(useCamera) {
-        const input = document.getElementById("fotoInput");
-        if (useCamera) {
-            input.setAttribute("capture", "environment");
-        } else {
-            input.removeAttribute("capture");
-        }
-        input.click();
+    function setActiveFotoInput(activeId) {
+        ["kameraInput", "galeriInput", "webCamInput"].forEach(id => {
+            const el = document.getElementById(id);
+            if (id === activeId) {
+                el.setAttribute("name", "foto");
+            } else {
+                el.removeAttribute("name");
+            }
+        });
     }
 
-    function previewGambar(input) {
+    function handleFileSelect(input, source) {
+        if (input.files && input.files[0]) {
+            if (source === "kamera") {
+                setActiveFotoInput("kameraInput");
+            } else if (source === "galeri") {
+                setActiveFotoInput("galeriInput");
+            } else {
+                setActiveFotoInput("webCamInput");
+            }
+            hasPhotoSelected = true;
+            tampilkanPreview(input.files[0]);
+        }
+    }
+
+    function tampilkanPreview(file) {
         const status = document.getElementById("fileStatus");
         const preview = document.getElementById("previewFoto");
-        if (input.files && input.files[0]) {
-            status.innerText = "File terpilih: " + input.files[0].name;
-            status.style.color = "green";
-            status.style.fontWeight = "bold";
+        status.innerText = "Foto siap diupload: " + file.name;
+        status.style.color = "green";
+        status.style.fontWeight = "bold";
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                preview.src = e.target.result;
-                preview.style.display = "block";
-            };
-            reader.readAsDataURL(input.files[0]);
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // Kamera Web Langsung (Bypass Android Photo Picker)
+    function openWebCamera() {
+        stopScanner();
+        const container = document.getElementById("photo-cam-container");
+        const video = document.getElementById("photoVideo");
+
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" } },
+            audio: false
+        }).then(stream => {
+            webCamStream = stream;
+            video.srcObject = stream;
+            container.style.display = "block";
+            container.scrollIntoView({ behavior: "smooth", block: "center" });
+        }).catch(err => {
+            alert("Gagal membuka kamera browser: " + err);
+        });
+    }
+
+    function captureWebPhoto() {
+        const video = document.getElementById("photoVideo");
+        const canvas = document.getElementById("photoCanvas");
+        if (!video.videoWidth) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(blob => {
+            const fileName = "foto_barang_" + Date.now() + ".jpg";
+            const file = new File([blob], fileName, { type: "image/jpeg" });
+
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            const webCamInput = document.getElementById("webCamInput");
+            webCamInput.files = dt.files;
+
+            handleFileSelect(webCamInput, "webcam");
+            closeWebCamera();
+        }, "image/jpeg", 0.85);
+    }
+
+    function closeWebCamera() {
+        const container = document.getElementById("photo-cam-container");
+        const video = document.getElementById("photoVideo");
+        if (webCamStream) {
+            webCamStream.getTracks().forEach(track => track.stop());
+            webCamStream = null;
         }
+        video.srcObject = null;
+        container.style.display = "none";
     }
 
     document.getElementById("plu").addEventListener("keypress", function(event) {
@@ -207,6 +318,7 @@
     });
 
     function startScanner() {
+        closeWebCamera();
         const container = document.getElementById("scanner-container");
         container.style.display = "block";
         container.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -306,8 +418,7 @@
     }
 
     function validateAndDisableSubmit() {
-        const fotoInput = document.getElementById("fotoInput");
-        if (!fotoInput.files || fotoInput.files.length === 0) {
+        if (!hasPhotoSelected) {
             alert("Silakan ambil foto atau pilih foto barang rusak terlebih dahulu!");
             return false;
         }
