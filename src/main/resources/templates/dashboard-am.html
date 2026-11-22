@@ -43,8 +43,11 @@
         .btn-del { color: #d9534f; text-decoration: none; font-weight: bold; }
 
         .store-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; }
-        .store-header { background: #34495e; color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .store-header { background: #34495e; color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap; }
         .store-header h4 { margin: 0; }
+        .store-header-actions { display: flex; align-items: center; gap: 15px; }
+        .btn-approve-all { background: #4CAF50; color: white; padding: 9px 16px; border-radius: 5px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: background 0.2s; }
+        .btn-approve-all:hover { background: #43a047; }
         .store-body { padding: 20px; overflow-x: auto; }
 
         .btn-approve { background: #4CAF50; color: white; padding: 6px 10px; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 4px; }
@@ -121,11 +124,18 @@
         <div class="store-card" th:each="entry : ${mapLaporanPerToko}">
             <div class="store-header">
                 <h4 th:text="${'Toko: ' + entry.key + ' - ' + mapNamaToko.getOrDefault(entry.key, '')}"></h4>
-                <div style="text-align: right;">
-                    <span style="background: #f26522; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; display:block; margin-bottom: 4px;"
-                          th:text="${'Jual: Rp ' + #numbers.formatDecimal(mapTotalPerToko.get(entry.key), 0, 'COMMA', 0, 'POINT')}"></span>
-                    <span style="background: #d9534f; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; display:block;"
-                          th:text="${'LDC: Rp ' + #numbers.formatDecimal(mapTotalLdcPerToko.get(entry.key), 0, 'COMMA', 0, 'POINT')}"></span>
+                <div class="store-header-actions">
+                    <a th:href="@{'/approve-all/' + ${entry.key}(filter=${currentFilter}, startDate=${startDate}, endDate=${endDate})}"
+                       class="btn-approve-all"
+                       onclick="return confirm('Approve semua ajuan yang masih Pending untuk toko ini?')">
+                        ✓ Approve Semua
+                    </a>
+                    <div style="text-align: right;">
+                        <span style="background: #f26522; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; display:block; margin-bottom: 4px;"
+                              th:text="${'Jual: Rp ' + #numbers.formatDecimal(mapTotalPerToko.get(entry.key), 0, 'COMMA', 0, 'POINT')}"></span>
+                        <span style="background: #d9534f; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; display:block;"
+                              th:text="${'LDC: Rp ' + #numbers.formatDecimal(mapTotalLdcPerToko.get(entry.key), 0, 'COMMA', 0, 'POINT')}"></span>
+                    </div>
                 </div>
             </div>
             <div class="store-body">
