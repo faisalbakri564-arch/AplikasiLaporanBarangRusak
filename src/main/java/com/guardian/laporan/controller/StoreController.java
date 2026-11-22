@@ -593,6 +593,42 @@ public class StoreController {
         }
         return "redirect:/dashboard-am";
     }
+    @GetMapping("/approve-all/{storeCode}")
+    public String approveAllByStore(@PathVariable("storeCode") String storeCode,
+                                    @RequestParam(value = "filter", defaultValue = "semua") String filter,
+                                    @RequestParam(value = "startDate", required = false) String startDate,
+                                    @RequestParam(value = "endDate", required = false) String endDate,
+                                    HttpSession session) {
+        if (!"AM".equals(session.getAttribute("role"))) return "redirect:/";
+
+        if ((startDate != null && !startDate.isEmpty()) || (endDate != null && !endDate.isEmpty())) {
+            filter = "custom";
+        }
+
+        List<Laporan> toUpdate = new ArrayList<>();
+        for (Laporan lap : laporanRepository.findAll()) {
+            if (storeCode.equals(lap.getStoreCode())
+                    && "Pending".equalsIgnoreCase(lap.getStatusApprove())
+                    && isMatchDateFilter(lap.getTanggalInput(), filter, startDate, endDate)) {
+                lap.setStatusApprove("Approved");
+                lap.setRejectReason(null);
+                toUpdate.add(lap);
+            }
+        }
+
+        if (!toUpdate.isEmpty()) {
+            laporanRepository.saveAll(toUpdate);
+        }
+
+        String redirectUrl = "redirect:/dashboard-am?filter=" + filter;
+        if (startDate != null && !startDate.trim().isEmpty()) {
+            redirectUrl += "&startDate=" + startDate.trim();
+        }
+        if (endDate != null && !endDate.trim().isEmpty()) {
+            redirectUrl += "&endDate=" + endDate.trim();
+        }
+        return redirectUrl;
+    }
 
     @PostMapping("/reject/{id}")
     public String rejectLaporan(@PathVariable("id") Long id,
