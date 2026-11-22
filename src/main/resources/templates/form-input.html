@@ -2,22 +2,34 @@
 <html lang="id" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Input Laporan - Store</title>
+    <!-- Library Scanner Barcode Kamera -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; display: flex; height: 100vh; }
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; display: flex; min-height: 100vh; }
         .sidebar { width: 250px; background: #2c3e50; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; }
         .sidebar h3 { color: #f26522; margin-top: 0; }
         .sidebar a { color: white; text-decoration: none; padding: 12px 15px; margin: 5px 0; border-radius: 4px; display: block; font-weight: bold; }
         .sidebar a:hover, .sidebar a.active { background: #f26522; }
         .main-content { flex: 1; padding: 30px; overflow-y: auto; }
-        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 600px; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 620px; }
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
-        input[type="text"], input[type="file"], input[type="date"], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input[type="text"], input[type="file"], input[type="date"], select, textarea {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+        }
+        .input-action-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .input-action-row input { flex: 1; min-width: 180px; }
         .btn-cek { background: #4CAF50; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-scan { background: #007bff; color: white; border: none; padding: 10px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-stop-scan { background: #d9534f; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 8px; width: 100%; }
         .btn-submit { background: #f26522; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .btn-submit:disabled { background: #999; cursor: not-allowed; }
         .readonly-bg { background-color: #e9ecef; color: #555; }
+        .hint { font-size: 11px; color: #666; margin-top: 4px; display: block; }
+        #scanner-container { display: none; margin-top: 10px; padding: 10px; border: 2px dashed #007bff; border-radius: 6px; background: #f8fbff; }
+        #reader { width: 100%; }
     </style>
 </head>
 <body>
@@ -34,21 +46,35 @@
 <div class="main-content">
     <div class="card">
         <h2>Form Pengajuan Barang Rusak</h2>
-        <form action="/submit-laporan" method="POST" enctype="multipart/form-data" onsubmit="disableSubmitBtn()">
+        <form action="/submit-laporan" method="POST" enctype="multipart/form-data" onsubmit="return validateAndDisableSubmit()">
             <div class="form-group">
                 <label>1. Foto Barang Rusak</label>
                 <input type="file" name="foto" accept="image/*" required>
             </div>
+
             <div class="form-group">
-                <label>2. Input PLU / Article</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="plu" name="plu" placeholder="Masukkan PLU" required>
-                    <button type="button" class="btn-cek" onclick="cekPlu()">Cek</button>
+                <label>2. Scan Barcode / Input Manual (Barcode atau Article)</label>
+                <div class="input-action-row">
+                    <input type="text" id="plu" name="plu" placeholder="Scan atau ketik Barcode / Article..." required>
+                    <button type="button" class="btn-scan" onclick="startScanner()">📷 Scan</button>
+                    <button type="button" class="btn-cek" onclick="cekProduk()">Cek</button>
+                </div>
+                <span class="hint">*Bisa scan kamera, scan alat barcode, atau ketik manual nomor Barcode / Article lalu klik Cek.</span>
+
+                <!-- Area Kamera Scanner -->
+                <div id="scanner-container">
+                    <div id="reader"></div>
+                    <button type="button" class="btn-stop-scan" onclick="stopScanner()">Tutup Kamera Scanner</button>
                 </div>
             </div>
 
             <div class="form-group">
-                <label>Nama Barang</label>
+                <label>Title / Article (Otomatis)</label>
+                <input type="text" id="titleArticle" class="readonly-bg" readonly placeholder="Otomatis terisi saat produk ditemukan">
+            </div>
+
+            <div class="form-group">
+                <label>Nama Barang (Otomatis)</label>
                 <input type="text" id="namaBarang" name="namaBarang" class="readonly-bg" readonly required>
             </div>
 
@@ -58,7 +84,7 @@
             </div>
 
             <div class="form-group">
-                <label>Harga Jual - Otomatis</label>
+                <label>Harga Jual (RSP) - Otomatis</label>
                 <input type="text" id="harga" name="harga" class="readonly-bg" readonly required>
             </div>
 
@@ -98,13 +124,84 @@
 </div>
 
 <script>
-    function cekPlu() {
-        const plu = document.getElementById("plu").value;
-        if (!plu) return alert("Masukkan PLU!");
-        fetch('/api/cek-plu?plu=' + plu)
+    let html5QrCode = null;
+    let isProductValid = false;
+
+    // Mendukung tekan Enter di kolom input (berguna untuk scanner fisik maupun ketik manual)
+    document.getElementById("plu").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            cekProduk();
+        }
+    });
+
+    function startScanner() {
+        const container = document.getElementById("scanner-container");
+        container.style.display = "block";
+
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("reader");
+        }
+
+        const config = {
+            fps: 10,
+            qrbox: { width: 250, height: 140 },
+            formatsToSupport: [
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39
+            ]
+        };
+
+        html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText) => {
+                document.getElementById("plu").value = decodedText;
+                stopScanner();
+                cekProduk();
+            },
+            (errorMessage) => {
+                // Abaikan error frame saat kamera mencari fokus barcode
+            }
+        ).catch((err) => {
+            alert("Kamera tidak dapat diakses. Pastikan izin kamera aktif atau gunakan input manual.\nDetail: " + err);
+            container.style.display = "none";
+        });
+    }
+
+    function stopScanner() {
+        const container = document.getElementById("scanner-container");
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                container.style.display = "none";
+            }).catch(() => {
+                container.style.display = "none";
+            });
+        } else {
+            container.style.display = "none";
+        }
+    }
+
+    function cekProduk() {
+        const kode = document.getElementById("plu").value.trim();
+        if (!kode) return alert("Scan barcode atau masukkan Barcode / Article terlebih dahulu!");
+
+        const btnCek = document.querySelector(".btn-cek");
+        btnCek.innerText = "Mencari...";
+
+        fetch('/api/cek-plu?plu=' + encodeURIComponent(kode))
             .then(res => res.json())
             .then(data => {
+                btnCek.innerText = "Cek";
+                isProductValid = data.found === true;
+
+                document.getElementById("titleArticle").value = data.title || "-";
                 document.getElementById("namaBarang").value = data.namaBarang;
+
                 document.getElementById("harga").value = new Intl.NumberFormat('id-ID', {
                     style: 'currency',
                     currency: 'IDR',
@@ -116,13 +213,22 @@
                     currency: 'IDR',
                     minimumFractionDigits: 0
                 }).format(data.ldc || 0);
+            })
+            .catch(() => {
+                btnCek.innerText = "Cek";
+                alert("Gagal mengambil data produk.");
             });
     }
 
-    function disableSubmitBtn() {
+    function validateAndDisableSubmit() {
+        if (!isProductValid) {
+            alert("Produk belum ditemukan! Pastikan Barcode atau Article sudah benar dan klik Cek terlebih dahulu.");
+            return false;
+        }
         const btn = document.getElementById("btnSubmit");
         btn.disabled = true;
         btn.innerText = "Mengirim Laporan...";
+        return true;
     }
 </script>
 </body>
