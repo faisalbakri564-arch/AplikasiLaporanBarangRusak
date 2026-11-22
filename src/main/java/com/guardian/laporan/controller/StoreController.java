@@ -646,6 +646,9 @@ public class StoreController {
     // ==========================================
     // SUBMIT LAPORAN - AMBIL HARGA ASLI DARI MASTER EXCEL
     // ==========================================
+    // ==========================================
+    // SUBMIT LAPORAN - OTOMATIS SIMPAN TITLE/ARTICLE DARI HASIL SCAN BARCODE
+    // ==========================================
     @PostMapping("/submit-laporan")
     public String submitLaporan(
             @RequestParam("foto") MultipartFile foto,
@@ -669,8 +672,13 @@ public class StoreController {
                 publicUrl = supabaseStorageService.uploadFile(foto);
             }
 
-            // Ambil harga jual & LDC murni langsung dari ExcelReaderService agar tidak korup
+            // Cari detail produk berdasarkan input (bisa berupa Barcode atau Article/Title)
             Map<String, Object> detailMaster = excelReaderService.getDetailBarang(storeCode, plu);
+
+            String resolvedTitle = (detailMaster.get("title") != null && !detailMaster.get("title").toString().isEmpty())
+                    ? detailMaster.get("title").toString()
+                    : plu.trim();
+
             double hargaAngka = detailMaster.get("harga") instanceof Number
                     ? ((Number) detailMaster.get("harga")).doubleValue() : 0.0;
             double ldcAngka = detailMaster.get("ldc") instanceof Number
@@ -678,7 +686,7 @@ public class StoreController {
 
             Laporan lap = new Laporan();
             lap.setStoreCode(storeCode);
-            lap.setPlu(plu.trim());
+            lap.setPlu(resolvedTitle); // Simpan Title/Article 7 digit ke kolom PLU
             lap.setNamaBarang(namaBarang);
             lap.setExpiredDate(expiredDate);
             lap.setLdc(ldcAngka);
@@ -695,4 +703,3 @@ public class StoreController {
         }
         return "redirect:/form-laporan";
     }
-}
