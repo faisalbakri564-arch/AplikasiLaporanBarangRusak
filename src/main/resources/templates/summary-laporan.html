@@ -2,23 +2,29 @@
 <html lang="id" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Summary Laporan Toko</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; display: flex; height: 100vh; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; display: flex; min-height: 100vh; }
         .sidebar { width: 250px; background: #2c3e50; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; }
-        .sidebar h3 { color: #f26522; margin-top: 0; }
-        .sidebar a { color: white; text-decoration: none; padding: 12px 15px; margin: 5px 0; border-radius: 4px; display: block; font-weight: bold; }
+        .sidebar h3 { color: #f26522; margin: 0 0 8px 0; }
+        .sidebar p { margin: 0 0 12px 0; font-size: 14px; }
+        .sidebar hr { border: none; border-top: 1px solid #444; width: 100%; margin: 0 0 12px 0; }
+        .sidebar-nav { display: flex; flex-direction: column; gap: 6px; }
+        .sidebar a { color: white; text-decoration: none; padding: 11px 14px; border-radius: 4px; display: block; font-weight: bold; font-size: 14px; }
         .sidebar a:hover, .sidebar a.active { background: #f26522; }
         .sidebar .btn-logout { margin-top: auto; background: #d9534f; text-align: center; }
 
-        .main-content { flex: 1; padding: 30px; overflow-y: auto; }
-        .card-box { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+        .main-content { flex: 1; padding: 25px; overflow-y: auto; }
+        .card-box { background: white; padding: 22px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
         .action-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; background: #f9f9f9; padding: 12px; border-radius: 6px; border: 1px solid #eee; }
         .action-bar input[type="date"] { padding: 7px; border: 1px solid #ccc; border-radius: 4px; }
         .btn-filter { background: #34495e; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-export { background: #1D6F42; color: white; padding: 9px 16px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px; }
+        .btn-export { background: #1D6F42; color: white; padding: 9px 16px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 13px; display: inline-block; }
 
-        table { width: 100%; border-collapse: collapse; }
+        .table-responsive { width: 100%; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 780px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 13px; vertical-align: middle; }
         th { background-color: #f26522; color: white; }
         .status-approved { color: green; font-weight: bold; }
@@ -26,17 +32,35 @@
         .status-rejected { color: #d9534f; font-weight: bold; }
         .reason-box { display: block; margin-top: 4px; padding: 5px 8px; background: #fdecea; color: #b52b27; border-left: 3px solid #d9534f; font-size: 12px; }
         img.thumb { width: 45px; height: 45px; object-fit: cover; border-radius: 4px; border: 1px solid #ccc; }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; padding: 14px 16px; }
+            .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+            .sidebar h3 { margin: 0; font-size: 18px; }
+            .sidebar p { margin: 0; font-size: 13px; }
+            .sidebar-nav { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+            .sidebar-nav a { flex: 1 1 auto; text-align: center; padding: 9px 8px; font-size: 13px; }
+            .sidebar .btn-logout { margin-top: 8px; width: 100%; padding: 9px; font-size: 13px; }
+            .main-content { padding: 12px; }
+            .card-box { padding: 16px; }
+            .btn-export { width: 100%; text-align: center; }
+        }
     </style>
 </head>
 <body>
 
 <div class="sidebar">
-    <h3>E-Report Toko</h3>
-    <p>Kode Toko: <strong th:text="${storeCode}"></strong></p>
-    <hr style="border-color: #444; width:100%; margin-bottom: 15px;">
-    <a href="/form-laporan">Input Laporan</a>
-    <a href="/summary-laporan" class="active">Summary Laporan</a>
-    <a href="/berita-acara/download-template">Berita Acara</a>
+    <div class="sidebar-header">
+        <h3>E-Report Toko</h3>
+        <p>Kode Toko: <strong th:text="${storeCode}"></strong></p>
+    </div>
+    <hr>
+    <div class="sidebar-nav">
+        <a href="/form-laporan">Input Laporan</a>
+        <a href="/summary-laporan" class="active">Summary Laporan</a>
+        <a href="/berita-acara/download-template">Berita Acara</a>
+    </div>
     <a href="/logout" class="btn-logout">Logout</a>
 </div>
 
@@ -57,47 +81,49 @@
             <a th:href="@{/toko/export-excel(startDate=${startDate}, endDate=${endDate})}" class="btn-export">⬇ Download Laporan Toko (Excel)</a>
         </div>
 
-        <table>
-            <thead>
-            <tr>
-                <th>Tanggal</th>
-                <th>Foto</th>
-                <th>PLU & Nama Barang</th>
-                <th>Expired</th>
-                <th>Keterangan</th>
-                <th>Jenis</th>
-                <th>Harga Beli (LDC)</th>
-                <th>Harga Jual</th>
-                <th>Pengaju</th>
-                <th>Status AM</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="lap : ${listLaporanToko}">
-                <td th:text="${lap.tanggalInput}"></td>
-                <td>
-                    <a th:href="${lap.fotoPath}" target="_blank">
-                        <img class="thumb" th:src="${lap.fotoPath}" alt="Foto" onerror="this.src='https://via.placeholder.com/45?text=Img'">
-                    </a>
-                </td>
-                <td><strong th:text="${lap.plu}"></strong><br><span th:text="${lap.namaBarang}" style="font-size: 11px; color:#555;"></span></td>
-                <td th:text="${lap.expiredDate}"></td>
-                <td th:text="${lap.keterangan}"></td>
-                <td th:text="${lap.jenisAjuan}"></td>
-                <td th:text="${'Rp ' + #numbers.formatDecimal(lap.ldc, 0, 'COMMA', 0, 'POINT')}" style="color: #d9534f; font-weight: bold;"></td>
-                <td th:text="${'Rp ' + #numbers.formatDecimal(lap.harga, 0, 'COMMA', 0, 'POINT')}"></td>
-                <td th:text="${lap.namaPengaju}"></td>
-                <td>
-                    <span th:if="${lap.statusApprove == 'Approved'}" class="status-approved">Approved</span>
-                    <span th:if="${lap.statusApprove == 'Pending'}" class="status-pending">Pending</span>
-                    <div th:if="${lap.statusApprove == 'Rejected'}">
-                        <span class="status-rejected">Rejected</span>
-                        <span class="reason-box" th:if="${lap.rejectReason != null}" th:text="${'Alasan AM: ' + lap.rejectReason}"></span>
-                    </div>
-                </td>
-            </tr>
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Foto</th>
+                    <th>PLU & Nama Barang</th>
+                    <th>Expired</th>
+                    <th>Keterangan</th>
+                    <th>Jenis</th>
+                    <th>Harga Beli (LDC)</th>
+                    <th>Harga Jual</th>
+                    <th>Pengaju</th>
+                    <th>Status AM</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="lap : ${listLaporanToko}">
+                    <td th:text="${lap.tanggalInput}"></td>
+                    <td>
+                        <a th:href="${lap.fotoPath}" target="_blank">
+                            <img class="thumb" th:src="${lap.fotoPath}" alt="Foto" onerror="this.src='https://via.placeholder.com/45?text=Img'">
+                        </a>
+                    </td>
+                    <td><strong th:text="${lap.plu}"></strong><br><span th:text="${lap.namaBarang}" style="font-size: 11px; color:#555;"></span></td>
+                    <td th:text="${lap.expiredDate}"></td>
+                    <td th:text="${lap.keterangan}"></td>
+                    <td th:text="${lap.jenisAjuan}"></td>
+                    <td th:text="${'Rp ' + #numbers.formatDecimal(lap.ldc, 0, 'COMMA', 0, 'POINT')}" style="color: #d9534f; font-weight: bold;"></td>
+                    <td th:text="${'Rp ' + #numbers.formatDecimal(lap.harga, 0, 'COMMA', 0, 'POINT')}"></td>
+                    <td th:text="${lap.namaPengaju}"></td>
+                    <td>
+                        <span th:if="${lap.statusApprove == 'Approved'}" class="status-approved">Approved</span>
+                        <span th:if="${lap.statusApprove == 'Pending'}" class="status-pending">Pending</span>
+                        <div th:if="${lap.statusApprove == 'Rejected'}">
+                            <span class="status-rejected">Rejected</span>
+                            <span class="reason-box" th:if="${lap.rejectReason != null}" th:text="${'Alasan AM: ' + lap.rejectReason}"></span>
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
