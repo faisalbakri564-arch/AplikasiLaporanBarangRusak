@@ -644,9 +644,6 @@ public class StoreController {
     }
 
     // ==========================================
-    // SUBMIT LAPORAN - AMBIL HARGA ASLI DARI MASTER EXCEL
-    // ==========================================
-    // ==========================================
     // SUBMIT LAPORAN - OTOMATIS SIMPAN TITLE/ARTICLE DARI HASIL SCAN BARCODE
     // ==========================================
     @PostMapping("/submit-laporan")
@@ -703,3 +700,4 @@ public class StoreController {
         }
         return "redirect:/form-laporan";
     }
+}
