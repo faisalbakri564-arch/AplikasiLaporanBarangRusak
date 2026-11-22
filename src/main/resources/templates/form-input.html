@@ -4,43 +4,74 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Input Laporan - Store</title>
-    <!-- Library Scanner Barcode Kamera -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" type="text/javascript"></script>
     <style>
+        * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; display: flex; min-height: 100vh; }
+
+        /* Sidebar Desktop */
         .sidebar { width: 250px; background: #2c3e50; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; }
-        .sidebar h3 { color: #f26522; margin-top: 0; }
-        .sidebar a { color: white; text-decoration: none; padding: 12px 15px; margin: 5px 0; border-radius: 4px; display: block; font-weight: bold; }
+        .sidebar h3 { color: #f26522; margin: 0 0 8px 0; }
+        .sidebar p { margin: 0 0 12px 0; font-size: 14px; }
+        .sidebar hr { border: none; border-top: 1px solid #444; width: 100%; margin: 0 0 12px 0; }
+        .sidebar-nav { display: flex; flex-direction: column; gap: 6px; }
+        .sidebar a { color: white; text-decoration: none; padding: 11px 14px; border-radius: 4px; display: block; font-weight: bold; font-size: 14px; }
         .sidebar a:hover, .sidebar a.active { background: #f26522; }
-        .main-content { flex: 1; padding: 30px; overflow-y: auto; }
-        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 620px; }
+        .btn-logout { margin-top: auto; background: #d9534f; text-align: center; }
+
+        /* Konten Utama */
+        .main-content { flex: 1; padding: 25px; overflow-y: auto; }
+        .card { background: white; padding: 22px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 620px; margin: 0 auto; }
+        .card h2 { margin-top: 0; font-size: 20px; color: #222; }
         .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; color: #333; font-size: 14px; }
         input[type="text"], input[type="file"], input[type="date"], select, textarea {
-            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;
         }
         .input-action-row { display: flex; gap: 8px; flex-wrap: wrap; }
-        .input-action-row input { flex: 1; min-width: 180px; }
-        .btn-cek { background: #4CAF50; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-scan { background: #007bff; color: white; border: none; padding: 10px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-stop-scan { background: #d9534f; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 8px; width: 100%; }
-        .btn-submit { background: #f26522; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .input-action-row input { flex: 1 1 200px; }
+        .btn-cek { background: #4CAF50; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .btn-scan { background: #007bff; color: white; border: none; padding: 10px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .btn-stop-scan { background: #d9534f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; width: 100%; }
+        .btn-submit { background: #f26522; color: white; border: none; padding: 13px; width: 100%; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .btn-submit:disabled { background: #999; cursor: not-allowed; }
         .readonly-bg { background-color: #e9ecef; color: #555; }
-        .hint { font-size: 11px; color: #666; margin-top: 4px; display: block; }
-        #scanner-container { display: none; margin-top: 10px; padding: 10px; border: 2px dashed #007bff; border-radius: 6px; background: #f8fbff; }
-        #reader { width: 100%; }
+        .hint { font-size: 12px; color: #666; margin-top: 5px; display: block; line-height: 1.4; }
+
+        /* Area Kamera Scanner */
+        #scanner-container { display: none; margin-top: 12px; padding: 10px; border: 2px dashed #007bff; border-radius: 6px; background: #f8fbff; width: 100%; }
+        #reader { width: 100%; min-height: 240px; overflow: hidden; border-radius: 4px; background: #000; }
+        #reader video { width: 100% !important; height: auto !important; object-fit: cover; }
+
+        /* Tampilan Responsif Khusus HP */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; padding: 14px 16px; }
+            .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+            .sidebar h3 { margin: 0; font-size: 18px; }
+            .sidebar p { margin: 0; font-size: 13px; }
+            .sidebar-nav { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+            .sidebar-nav a { flex: 1 1 auto; text-align: center; padding: 9px 8px; font-size: 13px; }
+            .btn-logout { margin-top: 8px; width: 100%; padding: 9px; font-size: 13px; }
+            .main-content { padding: 12px; }
+            .card { padding: 16px; }
+            .btn-scan, .btn-cek { flex: 1; text-align: center; }
+        }
     </style>
 </head>
 <body>
 <div class="sidebar">
-    <h3>E-Report Toko</h3>
-    <p>Kode Toko: <strong th:text="${storeCode}"></strong></p>
-    <hr style="border-color: #444; width:100%; margin-bottom: 15px;">
-    <a href="/form-laporan" class="active">Input Laporan</a>
-    <a href="/summary-laporan">Summary Laporan</a>
-    <a href="/berita-acara/download-template">Berita Acara</a>
-    <a href="/logout" style="margin-top: auto; background: #d9534f; text-align: center;">Logout</a>
+    <div class="sidebar-header">
+        <h3>E-Report Toko</h3>
+        <p>Kode Toko: <strong th:text="${storeCode}"></strong></p>
+    </div>
+    <hr>
+    <div class="sidebar-nav">
+        <a href="/form-laporan" class="active">Input Laporan</a>
+        <a href="/summary-laporan">Summary Laporan</a>
+        <a href="/berita-acara/download-template">Berita Acara</a>
+    </div>
+    <a href="/logout" class="btn-logout">Logout</a>
 </div>
 
 <div class="main-content">
@@ -55,13 +86,12 @@
             <div class="form-group">
                 <label>2. Scan Barcode / Input Manual (Barcode atau Article)</label>
                 <div class="input-action-row">
-                    <input type="text" id="plu" name="plu" placeholder="Scan atau ketik Barcode / Article..." required>
+                    <input type="text" id="plu" name="plu" inputmode="numeric" placeholder="Scan atau ketik Barcode / Article..." required>
                     <button type="button" class="btn-scan" onclick="startScanner()">📷 Scan</button>
                     <button type="button" class="btn-cek" onclick="cekProduk()">Cek</button>
                 </div>
                 <span class="hint">*Bisa scan kamera, scan alat barcode, atau ketik manual nomor Barcode / Article lalu klik Cek.</span>
 
-                <!-- Area Kamera Scanner -->
                 <div id="scanner-container">
                     <div id="reader"></div>
                     <button type="button" class="btn-stop-scan" onclick="stopScanner()">Tutup Kamera Scanner</button>
@@ -127,7 +157,6 @@
     let html5QrCode = null;
     let isProductValid = false;
 
-    // Mendukung tekan Enter di kolom input (berguna untuk scanner fisik maupun ketik manual)
     document.getElementById("plu").addEventListener("keypress", function(event) {
         if (event.key === "Enter") {
             event.preventDefault();
@@ -138,39 +167,55 @@
     function startScanner() {
         const container = document.getElementById("scanner-container");
         container.style.display = "block";
+        container.scrollIntoView({ behavior: "smooth", block: "center" });
 
-        if (!html5QrCode) {
-            html5QrCode = new Html5Qrcode("reader");
-        }
+        // Tunggu 150ms agar browser HP selesai menghitung lebar kotak kamera
+        setTimeout(() => {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
 
-        const config = {
-            fps: 10,
-            qrbox: { width: 250, height: 140 },
-            formatsToSupport: [
-                Html5QrcodeSupportedFormats.EAN_13,
-                Html5QrcodeSupportedFormats.EAN_8,
-                Html5QrcodeSupportedFormats.UPC_A,
-                Html5QrcodeSupportedFormats.UPC_E,
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.CODE_39
-            ]
-        };
+            if (html5QrCode.isScanning) {
+                return;
+            }
 
-        html5QrCode.start(
-            { facingMode: "environment" },
-            config,
-            (decodedText) => {
-                document.getElementById("plu").value = decodedText;
+            const config = {
+                fps: 10,
+                aspectRatio: 1.5,
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    const width = Math.max(180, Math.floor(viewfinderWidth * 0.85));
+                    const height = Math.max(100, Math.floor(viewfinderHeight * 0.45));
+                    return { width: width, height: height };
+                }
+            };
+
+            const onScanSuccess = (decodedText) => {
+                document.getElementById("plu").value = decodedText.trim();
                 stopScanner();
                 cekProduk();
-            },
-            (errorMessage) => {
-                // Abaikan error frame saat kamera mencari fokus barcode
-            }
-        ).catch((err) => {
-            alert("Kamera tidak dapat diakses. Pastikan izin kamera aktif atau gunakan input manual.\nDetail: " + err);
-            container.style.display = "none";
-        });
+            };
+
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                onScanSuccess,
+                () => {}
+            ).catch(() => {
+                // Fallback jika Safari iOS menolak constraint facingMode
+                Html5Qrcode.getCameras().then(devices => {
+                    if (devices && devices.length > 0) {
+                        const backCam = devices[devices.length - 1].id;
+                        html5QrCode.start(backCam, config, onScanSuccess, () => {});
+                    } else {
+                        alert("Kamera tidak ditemukan pada perangkat ini.");
+                        container.style.display = "none";
+                    }
+                }).catch(err => {
+                    alert("Izin kamera ditolak atau browser tidak mendukung akses kamera: " + err);
+                    container.style.display = "none";
+                });
+            });
+        }, 150);
     }
 
     function stopScanner() {
