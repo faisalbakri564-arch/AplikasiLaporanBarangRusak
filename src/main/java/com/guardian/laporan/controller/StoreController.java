@@ -558,6 +558,9 @@ public class StoreController {
     // ==========================================
     // DOWNLOAD TEMPLATE KOSONG BERITA ACARA (TOKO)
     // ==========================================
+    // ==========================================
+    // DOWNLOAD TEMPLATE BERITA ACARA (.XLSM MACRO)
+    // ==========================================
     @GetMapping("/berita-acara/download-template")
     public ResponseEntity<byte[]> downloadTemplateBeritaAcara(HttpSession session) {
         String storeCode = (String) session.getAttribute("storeCode");
@@ -565,13 +568,13 @@ public class StoreController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        ClassPathResource resource = new ClassPathResource("data/FORMAT BERITA ACARA PEMUSNAHAN BARANG.xlsx");
+        ClassPathResource resource = new ClassPathResource("data/FORMAT BERITA ACARA PEMUSNAHAN BARANG.xlsm");
         try (InputStream is = resource.getInputStream()) {
             byte[] fileBytes = is.readAllBytes();
 
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-            headers.setContentDispositionFormData("attachment", "Template_Berita_Acara_Pemusnahan.xlsx");
+            headers.setContentType(MediaType.parseMediaType("application/vnd.ms-excel.sheet.macroEnabled.12"));
+            headers.setContentDispositionFormData("attachment", "Template_Berita_Acara_Pemusnahan.xlsm");
             headers.setContentLength(fileBytes.length);
 
             return new ResponseEntity<>(fileBytes, headers, HttpStatus.OK);
@@ -580,7 +583,6 @@ public class StoreController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
     // APPROVE & REJECT DENGAN REASON
     @GetMapping("/approve/{id}")
     public String approveLaporan(@PathVariable("id") Long id, HttpSession session) {
